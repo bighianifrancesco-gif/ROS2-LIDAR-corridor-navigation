@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# VSCode
+.vscode/
+
+# ROS2 / build artifacts (if you ever build from here)
+build/
+install/
+log/
+
+# Gazebo recordings
+*.db3
+*.bag
