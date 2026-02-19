@@ -1,0 +1,44 @@
+# ROS2 LiDAR Corridor Navigation (Reactive)
+
+Reactive corridor/maze navigation in **ROS2** using only **2D LiDAR (/scan)**.
+No SLAM, no Nav2, no global planner.
+
+## Demo
+- Video: https://drive.google.com/file/d/12R3s0P7lfGvG4RxDxmDoib1ueH8cu0Jc/view?usp=sharing
+- Key behavior: go straight when clear, avoid frontal obstacles by turning toward the more open side.
+
+## Repository structure
+maze_runner/
+├─ launch/
+│ └─ maze_runner.launch.py
+├─ maze_runner/
+│ ├─ init.py
+│ └─ simple_open_space_driver.py
+├─ resource/
+├─ package.xml
+├─ setup.py
+└─ setup.cfg
+
+
+## Topics
+**Subscribed**
+- `/scan` (`sensor_msgs/LaserScan`)
+
+**Published**
+- `/cmd_vel` (`geometry_msgs/Twist`)
+
+## How it works (high level)
+1. Drive straight by default  
+2. If obstacle in front (`front < front_stop`): turn toward the more open diagonal (LF vs RF)  
+3. If side wall is very close: steer away slightly  
+
+All decisions are based on LiDAR sector distances.
+
+## Run
+Build from a ROS2 workspace:
+
+```bash
+cd ~/ros2_ws
+colcon build --symlink-install
+source install/setup.bash
+ros2 launch maze_runner maze_runner.launch.py
