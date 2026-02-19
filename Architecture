@@ -1,0 +1,131 @@
+# Architecture and Behavior Summary
+
+This project implements a **reactive corridor / maze navigation** behavior in **ROS2** using only a **2D LiDAR** (`sensor_msgs/LaserScan`).  
+It does **not** use SLAM, Nav2, or any global planner. Decisions are made from the current scan only.
+
+---
+
+## ROS2 architecture (nodes + topics)
+
+```text
+                    ┌──────────────────────────────────┐
+                    │              Gazebo              │
+                    │  Robot model + physics + plugins │
+                    │  - LiDAR plugin publishes /scan  │
+                    │  - diff drive consumes /cmd_vel  │
+                    │  - diff drive publishes /odom    │
+                    └───────────────┬──────────────────┘
+                                    │
+                 /scan (LaserScan)  │
+                                    ▼
+        ┌────────────────────────────────────┐
+        │     simple_open_space_driver        │
+        │     (ROS2 Python node)              │
+        │  - subscribes: /scan                │
+        │  - publishes:  /cmd_vel             │
+        └────────────────────┬───────────────┘
+                             │
+            /cmd_vel (Twist) │
+                             ▼
+                    ┌─────────────────┐
+                    │  diff_drive     │
+                    │  (Gazebo plugin)│
+                    └─────────────────┘
+
+Optional visualization:
+- RViz2 subscribes to /scan and TF to display the LiDAR and robot frame.
+
+Behavior (high-level)
+
+The behavior is designed to be simple and stable:
+
+Default: go straight
+
+When there is no nearby obstacle and walls are not too close, command forward velocity only.
+
+Front obstacle avoidance (open-space turning)
+
+If the front sector is closer than a threshold (front_stop), choose the turn direction based on which diagonal is more open:
+
+compare left-front (LF) vs right-front (RF)
+
+if LF > RF → turn left
+
+else → turn right
+
+Side “push-off” (anti-wall contact)
+
+If a side wall is very close (side_close), add a small steering correction away from that side.
+
+This is not full “centering”; it only prevents grazing the walls.
+
+How LiDAR is used (sector distances)
+
+The node reduces the full scan to a few robust “sector distances”:
+
+Front: 0° ± front_half_deg
+
+Left-front: lf_deg ± diag_half_deg (default +45°)
+
+Right-front: rf_deg ± diag_half_deg (default −45°)
+
+Left: +90° ± side_half_deg
+
+Right: −90° ± side_half_deg
+
+Instead of taking the minimum range (noisy), it uses a low percentile inside the sector:
+
+e.g., 25th percentile for front/diagonals
+
+e.g., 35th percentile for sides
+This behaves like “nearest typical surface” and reduces single-beam outliers.
+
+Control outputs
+
+The node publishes geometry_msgs/Twist:
+
+Straight:
+
+linear.x = v
+
+angular.z = 0
+
+Turning (front obstacle):
+
+linear.x = v_turn
+
+angular.z = ±w
+
+Side correction (wall too close):
+
+angular.z = ±0.4*w (small correction)
+
+linear.x remains v
+
+Parameters (main)
+
+v: forward speed (default 1.5)
+
+v_turn: forward speed while turning (default 0.4)
+
+w: nominal turn rate (default 1.0)
+
+w_max: angular clamp (default 2.0)
+
+front_stop: front obstacle threshold (default 1.2 m)
+
+side_close: side wall proximity threshold (default 0.7 m)
+
+Sector widths:
+
+front_half_deg, diag_half_deg, side_half_deg
+
+Diagonal centers:
+
+lf_deg, rf_deg
+
+Limitations
+
+Reactive only: no memory, no map, no goal planning.
+
+Behavior is suited for corridors/mazes; in large open spaces it will mostly drive straight until something is detected.
