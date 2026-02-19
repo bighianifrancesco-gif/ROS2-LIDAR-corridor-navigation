@@ -13,7 +13,7 @@ maze_runner/
 │ └─ maze_runner.launch.py
 ├─ maze_runner/
 │ ├─ init.py
-│ └─ simple_open_space_driver.py
+│ └─ wall_follower.py
 ├─ resource/
 ├─ package.xml
 ├─ setup.py
